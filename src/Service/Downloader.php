@@ -13,9 +13,22 @@ class Downloader
     public const DEFAULT_OUTPUT_DIR = 'var/download';
 
     /**
+     * Symfony Filesystem instance.
+     */
+    protected Filesystem $fs;
+
+    /**
      * Output directory where files will be stored.
      */
     protected string $outputDir;
+
+    /**
+     * Get the Symfony Filesystem instance.
+     */
+    protected function fs(): Filesystem
+    {
+        return $this->fs ??= new Filesystem();
+    }
 
     /**
      * Get the output directory where files will be stored.
@@ -37,40 +50,60 @@ class Downloader
 
     /**
      * Download a file from an URL.
+     * Return the absolute path of the downloaded file.
      */
-    public function downloadFile(string $url, string $outputFileName): self
+    public function downloadFile(string $url, string $outputFileName): string
     {
-        $filesystem = new Filesystem();
-
-        // Create output directory if it does not exist yet
-        $filesystem->mkdir($this->getOutputDir());
-
         $httpClient = HttpClient::create();
 
         /** @var \Symfony\Contracts\HttpClient\ResponseInterface $response */
         $response = $httpClient->request('GET', $url);
 
-        $filesystem->dumpFile(
-            sprintf('%s/%s', $this->getOutputDir(), $outputFileName),
-            $response->getContent()
-        );
+        $filePath = sprintf('%s/%s', $this->getOutputDir(), $outputFileName);
 
-        return $this;
+        $this->fs()->dumpFile($filePath, $response->getContent());
+
+        return realpath($filePath);
     }
 
     /**
      * Download a list of files from an URL, and store them in a sub-directory (optional).
+     * Return the list of absolute paths of the downloaded files.
      */
-    public function downloadFiles(string $baseUrl, iterable $filenames, string $subDir = null): self
+    public function downloadFiles(string $baseUrl, iterable $filenames, string $subDir = null): array
     {
+        $filePaths = [];
+
         $baseDir = $this->getOutputDir();
 
         $this->setOutputDir("$baseDir/$subDir");
 
         foreach ($filenames as $filename) {
-            $this->downloadFile($baseUrl . $filename, $filename);
+            $filePaths[] = $this->downloadFile("$baseUrl/$filename", $filename);
         }
 
-        return $this->setOutputDir($baseDir);
+        $this->setOutputDir($baseDir);
+
+        return $filePaths;
+    }
+
+    /**
+     * Decompress a `.gz` file and return the result file path.
+     * Delete the `.gz` file if needed.
+     */
+    public function gzDecompress(string $gzFilePath, bool $deleteGzFile = true): string
+    {
+        $filePath = preg_replace('/\.gz$/', '', $gzFilePath);
+
+        $this->fs()->dumpFile(
+            $filePath,
+            gzdecode(file_get_contents($gzFilePath))
+        );
+
+        if ($deleteGzFile) {
+            $this->fs()->remove($gzFilePath);
+        }
+
+        return $filePath;
     }
 }

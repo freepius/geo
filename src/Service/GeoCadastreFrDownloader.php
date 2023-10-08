@@ -48,23 +48,34 @@ class GeoCadastreFrDownloader extends Downloader
     }
 
     /**
-     * Download the cadastral data for one or more INSEE codes.
+     * Download (and decompress if needed) the cadastral data for one or more INSEE codes.
+     * Return the list of absolute paths of the downloaded (uncompressed) files.
      */
-    public function downloadByInsee(array|string $inseeCodes): self
+    public function downloadByInsee(array|string $inseeCodes, bool $decompress = true): array
     {
+        $allFilePaths = [];
+
         $inseeCodes = (array) $inseeCodes;
 
         foreach ((array) $inseeCodes as $code) {
             $filenames = $this->getFilenamesByOneInsee($code);
 
-            $this->downloadFiles(
+            $filePaths = $this->downloadFiles(
                 $this->getBaseUrlByOneInsee($code),
                 $filenames,
                 1 === count($filenames) ? null : $code
             );
+
+            $allFilePaths = array_merge($allFilePaths, $filePaths);
         }
 
-        return $this;
+        if ($decompress) {
+            foreach ($allFilePaths as &$filePath) {
+                $filePath = $this->gzDecompress($filePath);
+            }
+        }
+
+        return $allFilePaths;
     }
 
     /**
