@@ -2,51 +2,14 @@
 
 namespace App\Service;
 
-use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\HttpClient\HttpClient;
 
 /**
  * Helper class to download files.
  */
-class Downloader
+class Downloader extends FilesystemWriter
 {
-    public const DEFAULT_OUTPUT_DIR = 'var/download';
-
-    /**
-     * Symfony Filesystem instance.
-     */
-    protected Filesystem $fs;
-
-    /**
-     * Output directory where files will be stored.
-     */
-    protected string $outputDir;
-
-    /**
-     * Get the Symfony Filesystem instance.
-     */
-    protected function fs(): Filesystem
-    {
-        return $this->fs ??= new Filesystem();
-    }
-
-    /**
-     * Get the output directory where files will be stored.
-     */
-    public function getOutputDir(): string
-    {
-        return $this->outputDir ?? static::DEFAULT_OUTPUT_DIR;
-    }
-
-    /**
-     * Set the output directory where files will be stored.
-     */
-    public function setOutputDir(string $outputDir): self
-    {
-        $this->outputDir = $outputDir;
-
-        return $this;
-    }
+    public const OUTPUT_DIR = 'var/download';
 
     /**
      * Download a file from an URL.
